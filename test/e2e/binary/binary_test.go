@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
@@ -263,7 +263,7 @@ var _ = Describe("terraformer", func() {
 				Eventually(func() map[string]string {
 					testObjs.Refresh()
 					return testObjs.StateConfigMap.Data
-				}, 1, 0.1).Should(HaveKeyWithValue(testutils.StateKey, stateContents))
+				}, 2, 0.1).Should(HaveKeyWithValue(testutils.StateKey, stateContents))
 
 				Eventually(session.Err).Should(Say("terraform process finished"))
 				Eventually(session.Err).Should(Say("triggering final state update"))

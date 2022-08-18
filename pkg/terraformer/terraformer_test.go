@@ -14,10 +14,10 @@ import (
 	"syscall"
 
 	"github.com/gardener/gardener/pkg/utils/test"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
-	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/utils/clock"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/gardener/terraformer/pkg/terraformer"
@@ -483,7 +483,8 @@ var _ = Describe("Terraformer", func() {
 				resetVars()
 			})
 
-			It("should relay SIGINT to terraform process", func(done Done) {
+			It("should relay SIGINT to terraform process", func() {
+				done := make(chan interface{})
 				var wg sync.WaitGroup
 				wg.Add(2)
 				go func() {
@@ -501,13 +502,14 @@ var _ = Describe("Terraformer", func() {
 				Eventually(logBuffer).Should(gbytes.Say("some terraform output"), "should run terraform apply")
 
 				signalCh <- syscall.SIGINT
-				Eventually(logBuffer).Should(gbytes.Say(fmt.Sprintf("fake terraform received signal: %s", syscall.SIGINT.String())))
+				Eventually(logBuffer, 1).Should(gbytes.Say(fmt.Sprintf("fake terraform received signal: %s", syscall.SIGINT.String())))
 
-				Eventually(logBuffer).Should(gbytes.Say("terraform process finished successfully"))
+				Eventually(logBuffer, 1).Should(gbytes.Say("terraform process finished successfully"))
 				wg.Done()
-			}, 1)
+			})
 
-			It("should relay SIGTERM to terraform process", func(done Done) {
+			It("should relay SIGTERM to terraform process", func() {
+				done := make(chan interface{})
 				var wg sync.WaitGroup
 				wg.Add(2)
 				go func() {
@@ -521,15 +523,15 @@ var _ = Describe("Terraformer", func() {
 					wg.Done()
 				}()
 
-				Eventually(logBuffer).Should(gbytes.Say("some terraform output"), "should run terraform init")
-				Eventually(logBuffer).Should(gbytes.Say("some terraform output"), "should run terraform apply")
+				Eventually(logBuffer, 1).Should(gbytes.Say("some terraform output"), "should run terraform init")
+				Eventually(logBuffer, 1).Should(gbytes.Say("some terraform output"), "should run terraform apply")
 
 				signalCh <- syscall.SIGTERM
-				Eventually(logBuffer).Should(gbytes.Say(fmt.Sprintf("fake terraform received signal: %s", syscall.SIGINT.String())))
+				Eventually(logBuffer, 1).Should(gbytes.Say(fmt.Sprintf("fake terraform received signal: %s", syscall.SIGINT.String())))
 
-				Eventually(logBuffer).Should(gbytes.Say("terraform process finished successfully"))
+				Eventually(logBuffer, 1).Should(gbytes.Say("terraform process finished successfully"))
 				wg.Done()
-			}, 1)
+			})
 		})
 	})
 })

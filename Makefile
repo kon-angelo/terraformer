@@ -26,6 +26,9 @@ REGION                 := eu-west-1
 ACCESS_KEY_ID_FILE     := .kube-secrets/aws/access_key_id.secret
 SECRET_ACCESS_KEY_FILE := .kube-secrets/aws/secret_access_key.secret
 
+TOOLS_DIR := hack/tools
+include vendor/github.com/gardener/gardener/hack/tools.mk
+
 #########################################
 # Rules for local development scenarios #
 #########################################
@@ -148,8 +151,8 @@ install-requirements:
 
 .PHONY: revendor
 revendor:
-	go mod vendor
 	go mod tidy
+	go mod vendor
 	@chmod +x $(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/*
 	@chmod +x $(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/.ci/*
 	@$(REPO_ROOT)/hack/update-github-templates.sh
@@ -163,7 +166,7 @@ check-generate:
 	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/check-generate.sh $(REPO_ROOT)
 
 .PHONY: check
-check:
+check: $(GINKGO) $(MOCKGEN) $(SETUP_ENVTEST)
 	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/check.sh --golangci-lint-config=./.golangci.yaml ./cmd/... ./pkg/... ./test/...
 
 .PHONY: generate
@@ -176,7 +179,7 @@ format:
 
 .PHONY: test
 test:
-	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/test.sh ./cmd/... ./pkg/... ./test/e2e/binary/...
+	$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/test-integration.sh ./cmd/... ./pkg/... ./test/e2e/binary/...
 
 .PHONY: test-e2e
 test-e2e:
@@ -194,6 +197,7 @@ test-e2e:
 .PHONY: test-cov
 test-cov:
 	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/test-cover.sh ./cmd/... ./pkg/... ./test/e2e/binary/...
+	$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/test-integration.sh ./cmd/... ./pkg/... ./test/e2e/binary/...
 
 .PHONY: test-cov-clean
 test-cov-clean:

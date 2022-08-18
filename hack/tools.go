@@ -1,3 +1,4 @@
+//go:build tools
 // +build tools
 
 // SPDX-FileCopyrightText: 2020 SAP SE or an SAP affiliate company and Gardener contributors
@@ -14,5 +15,5 @@ import (
 	_ "github.com/gardener/gardener/hack/.ci"
 
 	_ "github.com/golang/mock/mockgen"
-	_ "github.com/onsi/ginkgo/ginkgo"
+	_ "github.com/onsi/ginkgo/v2/ginkgo"
 )

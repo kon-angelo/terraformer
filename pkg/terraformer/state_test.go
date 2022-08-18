@@ -16,14 +16,15 @@ import (
 	"github.com/gardener/gardener/pkg/utils/test"
 	. "github.com/gardener/gardener/pkg/utils/test/matchers"
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/utils/clock"
+	clockTesting "k8s.io/utils/clock/testing"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
@@ -38,7 +39,8 @@ var _ = Describe("Terraformer State", func() {
 		ctrl *gomock.Controller
 		// not used by default, only injected in some cases
 		c         *mockclient.MockClient
-		fakeClock *clock.FakeClock
+		clock     clock.Clock
+		fakeClock clockTesting.FakeClock
 
 		tf       *terraformer.Terraformer
 		paths    *terraformer.PathSet
@@ -50,7 +52,8 @@ var _ = Describe("Terraformer State", func() {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		c = mockclient.NewMockClient(ctrl)
-		fakeClock = &clock.FakeClock{}
+		fakeClock = clockTesting.FakeClock{}
+		clock = &fakeClock
 
 		baseDir, err := ioutil.TempDir("", "tf-test-*")
 		Expect(err).NotTo(HaveOccurred())
@@ -77,7 +80,7 @@ var _ = Describe("Terraformer State", func() {
 			},
 			zap.New(zap.UseDevMode(true), zap.WriteTo(io.MultiWriter(GinkgoWriter, logBuffer))),
 			paths,
-			fakeClock,
+			clock,
 		)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -328,7 +331,8 @@ var _ = Describe("Terraformer State", func() {
 			resetVars()
 		})
 
-		It("should trigger final state update", func(done Done) {
+		It("should trigger final state update", func() {
+			done := make(chan interface{})
 			stateContents := "state contents"
 			Expect(ioutil.WriteFile(paths.StatePath, []byte(stateContents), 0644)).To(Succeed())
 
@@ -351,10 +355,11 @@ var _ = Describe("Terraformer State", func() {
 				testObjs.Refresh()
 				return testObjs.StateConfigMap.Data
 			}, 1, 0.1).Should(HaveKeyWithValue(testutils.StateKey, stateContents))
-			Eventually(logBuffer).Should(gbytes.Say("successfully stored terraform state"))
+			Eventually(logBuffer, 2).Should(gbytes.Say("successfully stored terraform state"))
 			wg.Done()
-		}, 2)
-		It("should retry state update until timeout", func(done Done) {
+		})
+		It("should retry state update until timeout", func() {
+			done := make(chan interface{})
 			Expect(inject.ClientInto(c, tf)).To(BeTrue())
 			stateContents := "state contents"
 			Expect(ioutil.WriteFile(paths.StatePath, []byte(stateContents), 0644)).To(Succeed())
@@ -380,10 +385,10 @@ var _ = Describe("Terraformer State", func() {
 				Eventually(logBuffer).Should(gbytes.Say("processing work item"), fmt.Sprintf("%d. attempt", i))
 			}
 			fakeClock.Step(terraformer.FinalStateUpdateTimeout)
-			Eventually(logBuffer).Should(gbytes.Say("error updating state"))
+			Eventually(logBuffer, 2).Should(gbytes.Say("error updating state"))
 			wg.Done()
-			Eventually(testStdout).Should(gbytes.Say(stateContents), "should copy state contents to stdout")
-		}, 2)
+			Eventually(testStdout, 2).Should(gbytes.Say(stateContents), "should copy state contents to stdout")
+		})
 	})
 
 	Describe("#LogStateContentsToStdout", func() {

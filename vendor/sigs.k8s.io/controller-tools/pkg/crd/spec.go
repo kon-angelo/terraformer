@@ -55,7 +55,7 @@ func (p *Parser) NeedCRDFor(groupKind schema.GroupKind, maxDescLen *int) {
 		packages = append(packages, pkg)
 	}
 
-	defaultPlural := flect.Pluralize(strings.ToLower(groupKind.Kind))
+	defaultPlural := strings.ToLower(flect.Pluralize(groupKind.Kind))
 	crd := apiext.CustomResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: apiext.SchemeGroupVersion.String(),
@@ -163,12 +163,6 @@ func (p *Parser) NeedCRDFor(groupKind schema.GroupKind, maxDescLen *int) {
 		// since there's no specific error location
 		packages[0].AddError(fmt.Errorf("CRD for %s with version(s) %v does not serve any version", groupKind, crd.Spec.Versions))
 	}
-
-	// NB(directxman12): CRD's status doesn't have omitempty markers, which means things
-	// get serialized as null, which causes the validator to freak out.  Manually set
-	// these to empty till we get a better solution.
-	crd.Status.Conditions = []apiext.CustomResourceDefinitionCondition{}
-	crd.Status.StoredVersions = []string{}
 
 	p.CustomResourceDefinitions[groupKind] = crd
 }

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright (c) 2019 SAP SE or an SAP affiliate company. All rights reserved. This file is licensed under the Apache Software License, v. 2 except as noted otherwise in the LICENSE file
 #
@@ -24,7 +24,7 @@ generate-controller-registration <name> <chart-dir> <dest> <kind-and-type> [kind
 
     <name>            Name of the controller registration to generate.
     <chart-dir>       Location of the chart directory.
-    <version-file>    Location of the VERSION file.
+    <version>         Version to use for the Helm chart and the tag in the ControllerDeployment.
     <dest>            The destination file to write the registration YAML to.
     <kind-and-type>   A tuple of kind and type of the controller registration to generate.
                       Separated by ':'.
@@ -41,11 +41,9 @@ if [ "$1" == "--optional" ]; then
 fi
 NAME="$1"
 CHART_DIR="$2"
-VERSION_FILE="$3"
+VERSION="$3"
 DEST="$4"
 KIND_AND_TYPE="$5"
-
-VERSION="$(cat "$VERSION_FILE")"
 
 ( [[ -z "$NAME" ]] || [[ -z "$CHART_DIR" ]] || [[ -z "$DEST" ]] || [[ -z "$KIND_AND_TYPE" ]]) && usage
 
@@ -76,10 +74,24 @@ mkdir -p "$(dirname "$DEST")"
 cat <<EOM > "$DEST"
 ---
 apiVersion: core.gardener.cloud/v1beta1
+kind: ControllerDeployment
+metadata:
+  name: $NAME
+type: helm
+providerConfig:
+  chart: $chart
+  values:
+    image:
+      tag: $VERSION
+---
+apiVersion: core.gardener.cloud/v1beta1
 kind: ControllerRegistration
 metadata:
   name: $NAME
 spec:
+  deployment:
+    deploymentRefs:
+    - name: $NAME
   resources:
 EOM
 
@@ -91,15 +103,5 @@ for kind_and_type in "${KINDS_AND_TYPES[@]}"; do
     type: $TYPE$MODE
 EOM
 done
-
-cat <<EOM >> "$DEST"
-  deployment:
-    type: helm
-    providerConfig:
-      chart: $chart
-      values:
-        image:
-          tag: $VERSION
-EOM
 
 echo "Successfully generated controller registration at $DEST"

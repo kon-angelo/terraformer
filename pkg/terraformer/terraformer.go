@@ -23,8 +23,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/utils/clock"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	runtimelog "sigs.k8s.io/controller-runtime/pkg/log"
@@ -315,7 +315,6 @@ func (t *Terraformer) executeTerraform(ctx context.Context, command Command, par
 func (t *Terraformer) addFinalizer(ctx context.Context) error {
 	logger := t.stepLogger("add-finalizer")
 	return t.updateObjects(ctx, logger, controllerutil.AddFinalizer)
-
 }
 
 func (t *Terraformer) removeFinalizer() error {
@@ -390,7 +389,7 @@ func (t *Terraformer) terraformObjects() []client.Object {
 	}
 }
 
-func (t *Terraformer) updateObjects(ctx context.Context, log logr.Logger, patchObj func(client.Object, string)) error {
+func (t *Terraformer) updateObjects(ctx context.Context, log logr.Logger, patchObj func(client.Object, string) bool) error {
 	allErrors := &multierror.Error{
 		ErrorFormat: utils.NewErrorFormatFuncWithPrefix("failed to update object finalizer"),
 	}
@@ -411,7 +410,7 @@ func (t *Terraformer) updateObjects(ctx context.Context, log logr.Logger, patchO
 	return err
 }
 
-func (t *Terraformer) updateObjectFinalizers(ctx context.Context, log logr.Logger, obj client.Object, patchObj func(client.Object, string)) error {
+func (t *Terraformer) updateObjectFinalizers(ctx context.Context, log logr.Logger, obj client.Object, patchObj func(client.Object, string) bool) error {
 	var (
 		key = client.ObjectKeyFromObject(obj)
 		err error
@@ -430,10 +429,12 @@ func (t *Terraformer) updateObjectFinalizers(ctx context.Context, log logr.Logge
 		}
 
 		old := obj.DeepCopyObject()
-		patchObj(obj, TerraformerFinalizer)
-		err = t.client.Patch(ctx, obj, client.MergeFromWithOptions(old, client.MergeFromWithOptimisticLock{}))
-		if !apierrors.IsConflict(err) {
-			break
+		if patchObj(obj, TerraformerFinalizer) {
+
+			err = t.client.Patch(ctx, obj, client.MergeFromWithOptions(old.(client.Object), client.MergeFromWithOptimisticLock{}))
+			if !apierrors.IsConflict(err) {
+				break
+			}
 		}
 	}
 

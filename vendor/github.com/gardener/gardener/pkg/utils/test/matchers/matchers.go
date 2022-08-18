@@ -15,6 +15,9 @@
 package matchers
 
 import (
+	"errors"
+
+	kcache "github.com/gardener/gardener/pkg/client/kubernetes/cache"
 	"github.com/onsi/gomega/format"
 	"github.com/onsi/gomega/types"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -22,15 +25,19 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// DeepEqual returns a Gomega matcher which checks whether the expected object is deeply equal with the object it is
-// being compared against.
-func DeepEqual(expected interface{}) types.GomegaMatcher {
+func init() {
 	// if CharactersAroundMismatchToInclude is too small, then format.MessageWithDiff will be unable to output our
 	// mismatch message
+	// set the variable in init func, otherwise the race detector will complain when matchers are used concurrently in
+	// multiple goroutines
 	if format.CharactersAroundMismatchToInclude < 50 {
 		format.CharactersAroundMismatchToInclude = 50
 	}
+}
 
+// DeepEqual returns a Gomega matcher which checks whether the expected object is deeply equal with the object it is
+// being compared against.
+func DeepEqual(expected interface{}) types.GomegaMatcher {
 	return newDeepEqualMatcher(expected)
 }
 
@@ -38,12 +45,6 @@ func DeepEqual(expected interface{}) types.GomegaMatcher {
 // ignored (not compared). This allows us to focus on the fields that matter to
 // the semantic comparison.
 func DeepDerivativeEqual(expected interface{}) types.GomegaMatcher {
-	// if CharactersAroundMismatchToInclude is too small, then format.MessageWithDiff will be unable to output our
-	// mismatch message
-	if format.CharactersAroundMismatchToInclude < 50 {
-		format.CharactersAroundMismatchToInclude = 50
-	}
-
 	return newDeepDerivativeMatcher(expected)
 }
 
@@ -108,5 +109,16 @@ func BeInvalidError() types.GomegaMatcher {
 	return &kubernetesErrors{
 		checkFunc: apierrors.IsInvalid,
 		message:   "Invalid",
+	}
+}
+
+// BeCacheError checks if error is a CacheError.
+func BeCacheError() types.GomegaMatcher {
+	return &kubernetesErrors{
+		checkFunc: func(err error) bool {
+			cacheErr := &kcache.CacheError{}
+			return errors.As(err, &cacheErr)
+		},
+		message: "",
 	}
 }
