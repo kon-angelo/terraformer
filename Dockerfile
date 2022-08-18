@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ############# golang-base
-FROM golang:1.16.3 AS golang-base
+FROM golang:1.18.5 AS golang-base
 
 ############# terraform-base
 FROM golang-base AS terraform-base
@@ -43,7 +43,7 @@ ARG PROVIDER=all
 RUN make install PROVIDER=$PROVIDER
 
 ############# terraformer
-FROM alpine:3.15.4 AS terraformer
+FROM alpine:3.16.2 AS terraformer
 
 # add additional packages that are required by provider plugins
 RUN apk add --update tzdata
