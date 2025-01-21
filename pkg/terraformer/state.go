@@ -61,7 +61,7 @@ func storeObject(ctx context.Context, log logr.Logger, c client.Client, obj Stor
 
 	for _, dataKey := range dataKeys {
 		if err := func() error {
-			file, err := os.Open(filepath.Join(dir, dataKey))
+			file, err := os.Open(filepath.Clean(filepath.Join(dir, dataKey)))
 			if err != nil {
 				return err
 			}

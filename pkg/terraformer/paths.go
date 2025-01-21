@@ -72,7 +72,7 @@ func (p *PathSet) EnsureDirs(log logr.Logger) error {
 		p.VarsDir,
 		p.StateDir,
 	} {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0750); err != nil {
 			return err
 		}
 		log.V(1).Info("directory ensured", "dir", dir)

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
@@ -34,7 +35,7 @@ func (matcher *fileContentsMatcher) Match(actual interface{}) (success bool, err
 		return false, fmt.Errorf("beFileWithContents matcher expects a file path")
 	}
 
-	file, err := os.Open(actualFilename)
+	file, err := os.Open(filepath.Clean(actualFilename))
 	if err != nil {
 		return false, err
 	}

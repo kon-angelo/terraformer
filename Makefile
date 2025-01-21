@@ -2,12 +2,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+ENSURE_GARDENER_MOD         := $(shell go get github.com/gardener/gardener@$$(go list -m -f "{{.Version}}" github.com/gardener/gardener))
+GARDENER_HACK_DIR           := $(shell go list -m -f "{{.Dir}}" github.com/gardener/gardener)/hack
 NAME                 := terraformer
 IMAGE_REPOSITORY     := europe-docker.pkg.dev/gardener-project/public/gardener/$(NAME)
 IMAGE_REPOSITORY_DEV := $(IMAGE_REPOSITORY)/dev
 REPO_ROOT            := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 VERSION              := $(shell cat "$(REPO_ROOT)/VERSION")
 EFFECTIVE_VERSION    := $(shell $(REPO_ROOT)/hack/get-version.sh)
+HACK_DIR                    := $(REPO_ROOT)/hack
 
 PROVIDER := all
 IMAGE_REPOSITORY_PROVIDER := $(IMAGE_REPOSITORY)
@@ -26,8 +29,12 @@ REGION                 := eu-west-1
 ACCESS_KEY_ID_FILE     := .kube-secrets/aws/access_key_id.secret
 SECRET_ACCESS_KEY_FILE := .kube-secrets/aws/secret_access_key.secret
 
-TOOLS_DIR := hack/tools
-include vendor/github.com/gardener/gardener/hack/tools.mk
+#########################################
+# Tools                                 #
+#########################################
+
+TOOLS_DIR := $(HACK_DIR)/tools
+include $(GARDENER_HACK_DIR)/tools.mk
 
 #########################################
 # Rules for local development scenarios #
@@ -40,7 +47,7 @@ ZAP_LOG_LEVEL := debug
 .PHONY: run
 run:
 	# running `go run ./cmd/terraformer $(COMMAND)`
-	go run -ldflags $(LD_FLAGS) -mod=vendor \
+	go run -ldflags $(LD_FLAGS) \
 		./cmd/terraformer $(COMMAND) \
 		--zap-devel=$(ZAP_DEVEL) \
 		--zap-log-level=$(ZAP_LOG_LEVEL) \
@@ -87,7 +94,7 @@ dev-kubeconfig:
 
 .PHONY: install
 install:
-	@LD_FLAGS=$(LD_FLAGS) $(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/install.sh ./cmd/terraformer...
+	@LD_FLAGS=$(LD_FLAGS) bash $(GARDENER_HACK_DIR)/install.sh ./cmd/terraformer...
 
 .PHONY: build
 build: docker-images bundle-clean
@@ -143,37 +150,44 @@ bundle-clean:
 # Rules for verification, formatting, linting, testing and cleaning #
 #####################################################################
 
-.PHONY: revendor
-revendor:
-	go mod tidy
-	go mod vendor
-	@chmod +x $(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/*
-	@chmod +x $(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/.ci/*
-	@$(REPO_ROOT)/hack/update-github-templates.sh
+.PHONY: tidy
+tidy:
+	@go mod tidy
+	@mkdir -p $(REPO_ROOT)/.ci/hack && cp $(GARDENER_HACK_DIR)/.ci/* $(REPO_ROOT)/.ci/hack/ && chmod +xw $(REPO_ROOT)/.ci/hack/*
+	@cp $(GARDENER_HACK_DIR)/cherry-pick-pull.sh $(HACK_DIR)/cherry-pick-pull.sh && chmod +xw $(HACK_DIR)/cherry-pick-pull.sh
 
 .PHONY: clean
 clean: bundle-clean
-	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/clean.sh ./cmd/... ./pkg/... ./test/...
+	@bash $(GARDENER_HACK_DIR)/clean.sh ./cmd/... ./pkg/... ./test/...
 
 .PHONY: check-generate
 check-generate:
-	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/check-generate.sh $(REPO_ROOT)
+	@bash $(GARDENER_HACK_DIR)/check-generate.sh $(REPO_ROOT)
 
 .PHONY: check
 check: $(GOIMPORTS) $(GOLANGCI_LINT) $(HELM)
-	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/check.sh --golangci-lint-config=./.golangci.yaml ./cmd/... ./pkg/... ./test/...
+	@REPO_ROOT=$(REPO_ROOT) bash $(GARDENER_HACK_DIR)/check.sh --golangci-lint-config=./.golangci.yaml ./cmd/... ./pkg/... ./test/...
 
 .PHONY: generate
-generate: $(MOCKGEN)
-	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/generate.sh ./cmd/... ./pkg/... ./test/...
+generate: $(MOCKGEN) $(VGOPATH)
+	@REPO_ROOT=$(REPO_ROOT) VGOPATH=$(VGOPATH) GARDENER_HACK_DIR=$(GARDENER_HACK_DIR) bash $(GARDENER_HACK_DIR)/generate-sequential.sh ./cmd/... ./pkg/... ./test/...
+	$(MAKE) format
 
 .PHONY: format
 format: $(GOIMPORTS) $(GOIMPORTSREVISER)
-	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/format.sh ./cmd ./pkg ./test
+	@bash $(GARDENER_HACK_DIR)/format.sh ./cmd ./pkg ./test
 
 .PHONY: test
 test: $(SETUP_ENVTEST)
-	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/test-integration.sh ./cmd/... ./pkg/... ./test/e2e/binary/...
+	@bash $(GARDENER_HACK_DIR)/test-integration.sh ./cmd/... ./pkg/... ./test/e2e/binary/...
+
+.PHONY: sast
+sast: $(GOSEC)
+	@bash $(GARDENER_HACK_DIR)/sast.sh
+
+.PHONY: sast-report
+sast-report: $(GOSEC)
+	@bash $(GARDENER_HACK_DIR)/sast.sh --gosec-report true
 
 .PHONY: test-e2e
 test-e2e:
@@ -181,7 +195,7 @@ test-e2e:
 	# If the image for this tag is not built/pushed yet, you have to do so first.
 	# Or you can use a specific image tag by setting the IMAGE_TAG variable
 	# like this: `make test-e2e IMAGE_TAG=v2.0.0`
-	@go test -timeout=0 -mod=vendor -ldflags $(LD_FLAGS) ./test/e2e/pod \
+	@go test -timeout=0 -ldflags $(LD_FLAGS) ./test/e2e/pod \
        --v -ginkgo.v -ginkgo.progress \
        --kubeconfig="${KUBECONFIG}" \
        --access-key-id="$(shell cat $(ACCESS_KEY_ID_FILE))" \
@@ -190,14 +204,14 @@ test-e2e:
 
 .PHONY: test-cov
 test-cov: $(SETUP_ENVTEST)
-	@$(REPO_ROOT)/hack/test-cover.sh ./cmd/... ./pkg/... ./test/e2e/binary/...
+	@bash $(GARDENER_HACK_DIR)/test-cover.sh ./cmd/... ./pkg/... ./test/e2e/binary/...
 
 .PHONY: test-cov-clean
 test-cov-clean: $(SETUP_ENVTEST)
-	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/test-cover-clean.sh
+	@bash $(GARDENER_HACK_DIR)/test-cover-clean.sh
 
 .PHONY: verify
-verify: check format test
+verify: check format test sast
 
 .PHONY: verify-extended
-verify-extended: check-generate check format test-cov test-cov-clean
+verify-extended: check-generate check format test-cov test-cov-clean sast-report

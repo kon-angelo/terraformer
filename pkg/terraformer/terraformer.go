@@ -101,9 +101,8 @@ func NewTerraformer(config *Config, log logr.Logger, paths *PathSet, clock clock
 }
 
 // InjectClient allows injecting a mock client for some test cases.
-func (t *Terraformer) InjectClient(client client.Client) error {
+func (t *Terraformer) InjectClient(client client.Client) {
 	t.client = client
-	return nil
 }
 
 // Run starts to terraformer execution with the given terraform command.
@@ -227,7 +226,7 @@ func (t *Terraformer) executeTerraform(ctx context.Context, command Command, par
 
 	// open termination log file already to ensure we can write to it. If we can't write to it, we should exit early
 	// instead of running terraform from which we can't properly transport the failure logs
-	terminationLogFile, err := os.OpenFile(t.paths.TerminationMessagePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	terminationLogFile, err := os.OpenFile(t.paths.TerminationMessagePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}
@@ -254,14 +253,11 @@ func (t *Terraformer) executeTerraform(ctx context.Context, command Command, par
 		args = append(args, "-var-file="+t.paths.VarsPath, "-parallelism=4", "-auto-approve", "-state="+t.paths.StatePath)
 	case StateReplaceProvider:
 		args = append(args, "-auto-approve", "-state="+t.paths.StatePath)
-	}
-
-	if command == StateReplaceProvider {
 		args = append(args, params...)
 	}
 
 	log.Info("executing terraform", "command", command, "args", strings.Join(args, " "))
-	tfCmd := exec.Command(TerraformBinary, args...)
+	tfCmd := exec.Command(TerraformBinary, args...) // #nosec: G204 -- the variable is only referring to subcommands of the hardcoded executable. Since the full command had to be constructed dynamically, this is needed.
 
 	logBuffer := &bytes.Buffer{}
 	terraformOutput := io.MultiWriter(Stderr, logBuffer)

@@ -14,6 +14,6 @@ import (
 	_ "github.com/gardener/gardener/hack"
 	_ "github.com/gardener/gardener/hack/.ci"
 
-	_ "github.com/golang/mock/mockgen"
 	_ "github.com/onsi/ginkgo/v2"
+	_ "go.uber.org/mock/gomock"
 )

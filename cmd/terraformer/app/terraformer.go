@@ -40,7 +40,7 @@ Also, it continuously updates the state ConfigMap by running a file watcher and 
 		Version: fmt.Sprintf("%#v", version),
 		Hidden:  true,
 
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			runtimelog.SetLogger(logzap.New(
 				// use configuration passed via flags
 				logzap.UseFlagOptions(zapOpts),
@@ -64,7 +64,7 @@ Also, it continuously updates the state ConfigMap by running a file watcher and 
 			})
 		},
 
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			// root command called without any terraform command is invalid and should exit with error code
 			return errors.New("no command was specified")
 		},
@@ -92,7 +92,7 @@ func addSubcommand(cmd *cobra.Command, command terraformer.Command, opts *terraf
 		Args:    cobra.NoArgs,
 		Example: exampleForCommand(string(command)),
 
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := opts.Complete(); err != nil {
 				return err
 			}

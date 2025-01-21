@@ -77,6 +77,9 @@ type Config struct {
 	// RESTConfig holds the completed rest.Config.
 	RESTConfig *rest.Config
 
+	// Client is the kubernetes client. Used mostly for testing. If nil, the client will be constructed from RESTConfig.
+	Client client.Client
+
 	// BaseDir is the base directory to be used for all terraform files (defaults to '/').
 	BaseDir string
 }

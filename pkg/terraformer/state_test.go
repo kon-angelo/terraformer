@@ -15,10 +15,10 @@ import (
 
 	"github.com/gardener/gardener/pkg/utils/test"
 	. "github.com/gardener/gardener/pkg/utils/test/matchers"
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
+	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,7 +26,6 @@ import (
 	"k8s.io/utils/clock/testing"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 
 	mockclient "github.com/gardener/terraformer/pkg/mock/client"
 	"github.com/gardener/terraformer/pkg/terraformer"
@@ -116,7 +115,7 @@ var _ = Describe("Terraformer State", func() {
 			Expect(tf.StoreState(ctx)).To(MatchError(ContainSubstring("no such file")))
 		})
 		It("should fail if patch fails", func() {
-			Expect(inject.ClientInto(c, tf)).To(BeTrue())
+			tf.InjectClient(c)
 			stateContents := "state from new run"
 			Expect(ioutil.WriteFile(paths.StatePath, []byte(stateContents), 0644)).To(Succeed())
 
@@ -125,7 +124,7 @@ var _ = Describe("Terraformer State", func() {
 			Expect(tf.StoreState(ctx)).To(MatchError(ContainSubstring("fake")))
 		})
 		It("should fail if create fails", func() {
-			Expect(inject.ClientInto(c, tf)).To(BeTrue())
+			tf.InjectClient(c)
 			stateContents := "state from new run"
 			Expect(ioutil.WriteFile(paths.StatePath, []byte(stateContents), 0644)).To(Succeed())
 
@@ -181,7 +180,7 @@ var _ = Describe("Terraformer State", func() {
 			Eventually(tf.FinalStateUpdateSucceeded).Should(Receive(), "should signal that final state update succeeded")
 		})
 		It("should log error if state update fails", func() {
-			Expect(inject.ClientInto(c, tf)).To(BeTrue())
+			tf.InjectClient(c)
 			stateContents := "state contents"
 			Expect(ioutil.WriteFile(paths.StatePath, []byte(stateContents), 0644)).To(Succeed())
 
@@ -195,7 +194,7 @@ var _ = Describe("Terraformer State", func() {
 			Consistently(tf.FinalStateUpdateSucceeded).ShouldNot(Receive(), "should not signal that final state update succeeded")
 		})
 		It("should retry if final state update fails", func() {
-			Expect(inject.ClientInto(c, tf)).To(BeTrue())
+			tf.InjectClient(c)
 			stateContents := "state contents"
 			Expect(ioutil.WriteFile(paths.StatePath, []byte(stateContents), 0644)).To(Succeed())
 
@@ -212,7 +211,7 @@ var _ = Describe("Terraformer State", func() {
 			Eventually(tf.FinalStateUpdateSucceeded).Should(Receive(), "should signal that final state update succeeded")
 		})
 		It("should gracefully shutdown worker", func() {
-			Expect(inject.ClientInto(c, tf)).To(BeTrue())
+			tf.InjectClient(c)
 			stateContents := "state contents"
 			Expect(ioutil.WriteFile(paths.StatePath, []byte(stateContents), 0644)).To(Succeed())
 
@@ -351,7 +350,7 @@ var _ = Describe("Terraformer State", func() {
 			wg.Done()
 		}, NodeTimeout(time.Second*2))
 		It("should retry state update until timeout", func(ctx SpecContext) {
-			Expect(inject.ClientInto(c, tf)).To(BeTrue())
+			tf.InjectClient(c)
 			stateContents := "state contents"
 			Expect(os.WriteFile(paths.StatePath, []byte(stateContents), 0644)).To(Succeed())
 

@@ -4,7 +4,7 @@
 
 ############# golang-base
 ARG PROVIDER=all
-FROM golang:1.21.13 AS golang-base
+FROM golang:1.23.5 AS golang-base
 
 ############# terraform-bundle
 FROM golang-base AS terraform-base

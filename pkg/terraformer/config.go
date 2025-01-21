@@ -97,7 +97,7 @@ func fetchObject(ctx context.Context, log logr.Logger, c client.Client, kind, ns
 			for _, dataKey := range dataKeys {
 				filePath := filepath.Join(dir, dataKey)
 				log.V(1).Info("creating empty file / truncating existing file", "dataKey", dataKey, "file", filePath)
-				file, err := os.OpenFile(filePath, os.O_CREATE|os.O_TRUNC, 0644)
+				file, err := os.OpenFile(filepath.Clean(filePath), os.O_CREATE|os.O_TRUNC, 0600)
 				if err != nil {
 					return err
 				}
@@ -117,7 +117,7 @@ func fetchObject(ctx context.Context, log logr.Logger, c client.Client, kind, ns
 			reader, err := obj.Read(dataKey)
 			if errors.As(err, &notFoundErr) && optional {
 				log.V(1).Info("key not found but object is optional, creating empty file / truncating existing file", "dataKey", dataKey, "file", filePath)
-				file, err := os.OpenFile(filePath, os.O_CREATE|os.O_TRUNC, 0644)
+				file, err := os.OpenFile(filepath.Clean(filePath), os.O_CREATE|os.O_TRUNC, 0600)
 				if err != nil {
 					return err
 				}
@@ -128,7 +128,7 @@ func fetchObject(ctx context.Context, log logr.Logger, c client.Client, kind, ns
 			}
 
 			log.V(1).Info("copying contents to file", "dataKey", dataKey, "file", filePath)
-			file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+			file, err := os.OpenFile(filepath.Clean(filePath), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 			if err != nil {
 				return err
 			}

@@ -15,5 +15,5 @@ spec:
     ACCESS_KEY_ID_FILE=<(echo $ACCESS_KEY_ID)
     SECRET_ACCESS_KEY_FILE=<(echo $SECRET_ACCESS_KEY)
     IMAGE_TAG=$IMAGE_TAG
-  image: golang:1.21.13
+  image: golang:1.23.5
 

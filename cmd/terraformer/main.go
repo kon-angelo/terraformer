@@ -18,7 +18,8 @@ import (
 )
 
 func main() {
-	if err := exec.Command("which", terraformer.TerraformBinary).Run(); err != nil {
+	if err := exec.Command("which", terraformer.TerraformBinary).Run(); // #nosec: G204 -- The variable is a hardcoded string and is only modified in tests.
+	err != nil {
 		panic("terraform is not installed or not executable. cannot start terraformer.")
 	}
 
